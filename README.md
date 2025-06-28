@@ -1,6 +1,8 @@
 ## DNC Challenge
-## Evaluation Criteria
+- A Node.js REST API for managing products, clients, stock, and sales for an online cosmetics store, built with in-memory data and designed to simulate a real backend system.
+- Techs: Node.js using Express.
 
+## Requirements
 ### 1. Data modeling quality
 - Entities: `produtos`, `clientes`, `estoque`, `vendas`, `venda_produto`
 - Relationships and attributes clearly defined (e.g. `cliente_id`, `data`, `quantidade`)
@@ -25,7 +27,6 @@
 ---
 
 ## 🧩 Database Schema (ERD)
-
 ![Untitled](https://github.com/user-attachments/assets/ce241888-ef54-48c7-a8cf-33bca3abab5f)
 
 
