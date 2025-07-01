@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"
+    "migrate": "mysql -u $DB_USER -p$DB_PASSWORD $DB_NAME < create_database.sql"
   },
   "keywords": [],
   "author": "",
