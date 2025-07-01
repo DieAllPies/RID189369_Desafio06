@@ -1,63 +1,113 @@
 const express = require('express');
 const router = express.Router();
-
-let nextId = 1;
-
-
-// But for now we’ll just simulate them in this file:
-const shared = require('./_sharedMemory');
-const { clientes, produtos, estoque, vendas } = shared;
-const cliente = clientes.find(c => c.id === cliente_id);
-
+const db = require('../config/database');
 
 // POST /vendas → create a new sale
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { cliente_id, itens } = req.body;
 
   if (!cliente_id || !Array.isArray(itens) || itens.length === 0) {
     return res.status(400).json({ error: 'cliente_id and at least one item are required' });
   }
 
-  const cliente = shared.clientes.find(c => c.id === cliente_id);
-  if (!cliente) {
-    return res.status(404).json({ error: 'Cliente não encontrado' });
-  }
+  const connection = await db.getConnection(); // Transactional safety
+  try {
+    await connection.beginTransaction();
 
-  const vendaItens = [];
-
-  for (let item of itens) {
-    const { id_produto, quantidade } = item;
-    const produto = shared.produtos.find(p => p.id === id_produto);
-    const estoqueItem = shared.estoque.find(e => e.id_produto === id_produto);
-
-    if (!produto) {
-      return res.status(404).json({ error: `Produto ${id_produto} não encontrado` });
+    // 1. Check if the client exists
+    const [clienteRows] = await connection.execute(
+      'SELECT * FROM clientes WHERE id = ?',
+      [cliente_id]
+    );
+    if (clienteRows.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Cliente não encontrado' });
     }
 
-    if (!estoqueItem || estoqueItem.quantidade < quantidade) {
-      return res.status(400).json({ error: `Estoque insuficiente para o produto ${id_produto}` });
+    // 2. Check stock for each product
+    for (const item of itens) {
+      const [estoqueRows] = await connection.execute(
+        'SELECT * FROM estoque WHERE produto_id = ?',
+        [item.id_produto]
+      );
+
+      if (
+        estoqueRows.length === 0 ||
+        estoqueRows[0].quantidade < item.quantidade
+      ) {
+        await connection.rollback();
+        return res.status(400).json({
+          error: `Estoque insuficiente para o produto ${item.id_produto}`,
+        });
+      }
     }
 
-    // Decrease stock
-    estoqueItem.quantidade -= quantidade;
+    // 3. Create the sale
+    const [vendaResult] = await connection.execute(
+      'INSERT INTO vendas (cliente_id) VALUES (?)',
+      [cliente_id]
+    );
+    const venda_id = vendaResult.insertId;
 
-    vendaItens.push({ id_produto, quantidade });
+    // 4. Insert items into venda_produto and update stock
+    for (const item of itens) {
+      await connection.execute(
+        'INSERT INTO venda_produto (venda_id, produto_id, quantidade) VALUES (?, ?, ?)',
+        [venda_id, item.id_produto, item.quantidade]
+      );
+
+      await connection.execute(
+        'UPDATE estoque SET quantidade = quantidade - ? WHERE produto_id = ?',
+        [item.quantidade, item.id_produto]
+      );
+    }
+
+    await connection.commit();
+
+    res.status(201).json({
+      id: venda_id,
+      cliente_id,
+      data: new Date().toISOString(),
+      itens
+    });
+  } catch (err) {
+    await connection.rollback();
+    console.error('Erro ao registrar venda:', err);
+    res.status(500).json({ error: 'Database error' });
+  } finally {
+    connection.release();
   }
-
-  const novaVenda = {
-    id: nextId++,
-    cliente_id,
-    data: new Date().toISOString(),
-    itens: vendaItens
-  };
-
-  vendas.push(novaVenda);
-  res.status(201).json(novaVenda);
 });
 
-// GET /vendas → list all
-router.get('/', (req, res) => {
-  res.json(vendas);
+// GET /vendas → list all sales
+router.get('/', async (req, res) => {
+  try {
+    const [vendas] = await db.execute(`
+      SELECT v.id, v.cliente_id, c.nome AS cliente_nome, v.data_venda
+      FROM vendas v
+      JOIN clientes c ON v.cliente_id = c.id
+      ORDER BY v.id DESC
+    `);
+
+    const fullVendas = [];
+
+    for (const venda of vendas) {
+      const [itens] = await db.execute(
+        'SELECT produto_id, quantidade FROM venda_produto WHERE venda_id = ?',
+        [venda.id]
+      );
+
+      fullVendas.push({
+        ...venda,
+        itens
+      });
+    }
+
+    res.json(fullVendas);
+  } catch (err) {
+    console.error('Erro ao buscar vendas:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 module.exports = router;

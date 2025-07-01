@@ -1,73 +1,95 @@
 const express = require('express');
 const router = express.Router();
-
-// In-memory client storage
-const shared = require('./_sharedMemory');
-const clientes = shared.clientes;
-let nextId = 1;
+const db = require('../config/database');
 
 // POST /clientes → create a new client
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { nome, email } = req.body;
 
   if (!nome || !email) {
     return res.status(400).json({ error: 'Nome and email are required' });
   }
 
-  const novoCliente = {
-    id: nextId++,
-    nome,
-    email,
-  };
+  try {
+    const [result] = await db.execute(
+      'INSERT INTO clientes (nome, email) VALUES (?, ?)',
+      [nome, email]
+    );
 
-  clientes.push(novoCliente);
-  res.status(201).json(novoCliente);
-});
-
-// GET /clientes → list all clients
-router.get('/', (req, res) => {
-  res.json(clientes);
-});
-
-// GET /clientes/:id → get client by ID
-router.get('/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const cliente = clientes.find(c => c.id === id);
-
-  if (!cliente) {
-    return res.status(404).json({ error: 'Cliente não encontrado' });
+    res.status(201).json({ id: result.insertId, nome, email });
+  } catch (err) {
+    console.error(err);
+    if (err.code === 'ER_DUP_ENTRY') {
+      res.status(409).json({ error: 'Email already exists' });
+    } else {
+      res.status(500).json({ error: 'Database error' });
+    }
   }
-
-  res.json(cliente);
 });
 
-// PUT /clientes/:id → update a client
-router.put('/:id', (req, res) => {
-  const id = parseInt(req.params.id);
+// GET /clientes
+router.get('/', async (req, res) => {
+  try {
+    const [rows] = await db.execute('SELECT * FROM clientes');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// GET /clientes/:id
+router.get('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [rows] = await db.execute('SELECT * FROM clientes WHERE id = ?', [id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Cliente não encontrado' });
+    }
+
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// PUT /clientes/:id
+router.put('/:id', async (req, res) => {
+  const { id } = req.params;
   const { nome, email } = req.body;
 
-  const cliente = clientes.find(c => c.id === id);
-  if (!cliente) {
-    return res.status(404).json({ error: 'Cliente não encontrado' });
+  try {
+    const [result] = await db.execute(
+      'UPDATE clientes SET nome = ?, email = ? WHERE id = ?',
+      [nome, email, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Cliente não encontrado' });
+    }
+
+    res.json({ id, nome, email });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
   }
-
-  if (nome) cliente.nome = nome;
-  if (email) cliente.email = email;
-
-  res.json(cliente);
 });
 
-// DELETE /clientes/:id → remove a client
-router.delete('/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const index = clientes.findIndex(c => c.id === id);
+// DELETE /clientes/:id
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
 
-  if (index === -1) {
-    return res.status(404).json({ error: 'Cliente não encontrado' });
+  try {
+    const [result] = await db.execute('DELETE FROM clientes WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Cliente não encontrado' });
+    }
+
+    res.json({ message: 'Cliente deletado com sucesso' });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
   }
-
-  const deletado = clientes.splice(index, 1);
-  res.json({ message: 'Cliente deletado com sucesso', cliente: deletado[0] });
 });
 
 module.exports = router;

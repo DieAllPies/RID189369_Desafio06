@@ -1,71 +1,107 @@
 const express = require('express');
 const router = express.Router();
+const db = require('../config/database');
 
-const shared = require('./_sharedMemory');
-const estoque = shared.estoque;
-let nextId = 1; // for simulation purposes only, unused in real stock
-
-// POST /estoque → set stock for a product
-router.post('/', (req, res) => {
+// POST /estoque → create stock entry for a product
+router.post('/', async (req, res) => {
   const { id_produto, quantidade } = req.body;
 
   if (!id_produto || quantidade == null) {
     return res.status(400).json({ error: 'id_produto and quantidade are required' });
   }
 
-  const existente = estoque.find(e => e.id_produto === id_produto);
-  if (existente) {
-    return res.status(409).json({ error: 'Estoque já cadastrado para esse produto' });
+  try {
+    const [exists] = await db.execute(
+      'SELECT * FROM estoque WHERE produto_id = ?',
+      [id_produto]
+    );
+
+    if (exists.length > 0) {
+      return res.status(409).json({ error: 'Estoque já cadastrado para esse produto' });
+    }
+
+    const [result] = await db.execute(
+      'INSERT INTO estoque (produto_id, quantidade) VALUES (?, ?)',
+      [id_produto, quantidade]
+    );
+
+    res.status(201).json({ id_estoque: result.insertId, id_produto, quantidade });
+  } catch (err) {
+    console.error('Erro ao inserir estoque:', err);
+    res.status(500).json({ error: 'Database error' });
   }
-
-  estoque.push({ id_produto, quantidade });
-  res.status(201).json({ id_produto, quantidade });
 });
 
-// GET /estoque → list full stock
-router.get('/', (req, res) => {
-  res.json(estoque);
+// GET /estoque → list all stock
+router.get('/', async (req, res) => {
+  try {
+    const [rows] = await db.execute('SELECT * FROM estoque');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-// GET /estoque/:id_produto → get stock for a product
-router.get('/:id_produto', (req, res) => {
+// GET /estoque/:id_produto → get stock for a specific product
+router.get('/:id_produto', async (req, res) => {
   const id = parseInt(req.params.id_produto);
-  const item = estoque.find(e => e.id_produto === id);
 
-  if (!item) {
-    return res.status(404).json({ error: 'Produto não encontrado no estoque' });
+  try {
+    const [rows] = await db.execute('SELECT * FROM estoque WHERE produto_id = ?', [id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Produto não encontrado no estoque' });
+    }
+
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
   }
-
-  res.json(item);
 });
 
 // PUT /estoque/:id_produto → update stock quantity
-router.put('/:id_produto', (req, res) => {
+router.put('/:id_produto', async (req, res) => {
   const id = parseInt(req.params.id_produto);
   const { quantidade } = req.body;
-
-  const item = estoque.find(e => e.id_produto === id);
-  if (!item) {
-    return res.status(404).json({ error: 'Produto não encontrado no estoque' });
-  }
 
   if (quantidade == null) {
     return res.status(400).json({ error: 'Quantidade é obrigatória' });
   }
 
-  item.quantidade = quantidade;
-  res.json(item);
-});
-router.delete('/:id_produto', (req, res) => {
-  const id = parseInt(req.params.id_produto);
-  const index = estoque.findIndex(e => e.id_produto === id);
+  try {
+    const [result] = await db.execute(
+      'UPDATE estoque SET quantidade = ? WHERE produto_id = ?',
+      [quantidade, id]
+    );
 
-  if (index === -1) {
-    return res.status(404).json({ error: 'Produto não encontrado no estoque' });
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Produto não encontrado no estoque' });
+    }
+
+    res.json({ id_produto: id, quantidade });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
   }
+});
 
-  const removido = estoque.splice(index, 1);
-  res.json({ message: 'Estoque removido com sucesso', estoque: removido[0] });
+// DELETE /estoque/:id_produto → remove stock entry
+router.delete('/:id_produto', async (req, res) => {
+  const id = parseInt(req.params.id_produto);
+
+  try {
+    const [result] = await db.execute(
+      'DELETE FROM estoque WHERE produto_id = ?',
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Produto não encontrado no estoque' });
+    }
+
+    res.json({ message: 'Estoque removido com sucesso' });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 module.exports = router;
