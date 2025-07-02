@@ -4,9 +4,13 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "predev": "npm i && npm run docker-up",
     "dev": "nodemon index.js",
+    "docker-up": "docker-compose -f docker-compose-dev.yml up -d",
+    "postdocker-up": "sleep 5 && npm run migrate",
     "migrate": "mysql -u $DB_USER -p$DB_PASSWORD $DB_NAME < create_database.sql",
-    "start:dev": "npm run migrate && npm run dev"
+    "start:dev": "npm run migrate && npm run dev",
+    "docker-down": "docker-compose -f docker-compose-dev.yml down"
   },
   "keywords": [],
   "author": "",
