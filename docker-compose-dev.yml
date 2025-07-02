@@ -1,16 +1,13 @@
-version: '3.8'
-
 services:
   mysql:
     image: mysql:8.0
     container_name: mysql-alternative
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: localhost
-      MYSQL_USER: root
-      MYSQL_PASSWORD: azAZ09()
+      MYSQL_DATABASE: dnc_commerce
+      MYSQL_ROOT_PASSWORD: azAZ09()
     ports: 
-      - "3307:3306" # Mapeando porta 3307 do host para 3306 do container
+      - "3307:3306"
     volumes: 
       - mysql_data:/var/lib/mysql
     command: --default-authentication-plugin=mysql_native_password
