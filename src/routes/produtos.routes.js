@@ -55,27 +55,56 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({ error: 'Database error' });
   }
 });
-
 // PUT /produtos/:id → update a product
 router.put('/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   const { nome, descricao, preco } = req.body;
 
+  // Validate that at least one field is being updated
+  if (nome === undefined && descricao === undefined && preco === undefined) {
+    return res.status(400).json({ error: 'At least one field (nome, descricao, preco) must be provided' });
+  }
+
+  const fields = [];
+  const params = [];
+
+  if (nome !== undefined) {
+    fields.push('nome = ?');
+    params.push(nome);
+  }
+
+  if (descricao !== undefined) {
+    fields.push('descricao = ?');
+    params.push(descricao);
+  }
+
+  if (preco !== undefined) {
+    const parsedPreco = parseFloat(preco);
+    if (isNaN(parsedPreco)) {
+      return res.status(400).json({ error: 'Invalid preco format' });
+    }
+    fields.push('preco = ?');
+    params.push(parsedPreco);
+  }
+
+  params.push(id);
+
+  const query = `UPDATE produtos SET ${fields.join(', ')} WHERE id = ?`;
+
   try {
-    const [result] = await db.execute(
-      'UPDATE produtos SET nome = ?, descricao = ?, preco = ? WHERE id = ?',
-      [nome, descricao, parseFloat(preco), id]
-    );
+    const [result] = await db.execute(query, params);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Produto não encontrado' });
     }
 
-    res.json({ id, nome, descricao, preco });
+    res.json({ id, ...(nome && { nome }), ...(descricao && { descricao }), ...(preco && { preco }) });
   } catch (err) {
+    console.error('Error updating product:', err);
     res.status(500).json({ error: 'Database error' });
   }
 });
+
 
 // DELETE /produtos/:id → remove a product
 router.delete('/:id', async (req, res) => {

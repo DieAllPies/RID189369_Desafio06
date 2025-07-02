@@ -11,6 +11,17 @@ router.post('/', async (req, res) => {
   }
 
   try {
+    // Check if product exists
+    const [productRows] = await db.execute(
+      'SELECT * FROM produtos WHERE id = ?',
+      [id_produto]
+    );
+
+    if (productRows.length === 0) {
+      return res.status(404).json({ error: 'Produto não existe' });
+    }
+
+    // Check if stock already exists
     const [exists] = await db.execute(
       'SELECT * FROM estoque WHERE produto_id = ?',
       [id_produto]
@@ -20,6 +31,7 @@ router.post('/', async (req, res) => {
       return res.status(409).json({ error: 'Estoque já cadastrado para esse produto' });
     }
 
+    // Insert stock
     const [result] = await db.execute(
       'INSERT INTO estoque (produto_id, quantidade) VALUES (?, ?)',
       [id_produto, quantidade]
@@ -31,6 +43,7 @@ router.post('/', async (req, res) => {
     res.status(500).json({ error: 'Database error' });
   }
 });
+
 
 // GET /estoque → list all stock
 router.get('/', async (req, res) => {

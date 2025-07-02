@@ -4,8 +4,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
-    "migrate": "mysql -u $DB_USER -p$DB_PASSWORD $DB_NAME < create_database.sql"
+    "dev": "nodemon index.js",
+    "migrate": "mysql -u $DB_USER -p$DB_PASSWORD $DB_NAME < create_database.sql",
+    "start:dev": "npm run migrate && npm run dev"
   },
   "keywords": [],
   "author": "",
