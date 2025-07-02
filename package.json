@@ -8,7 +8,7 @@
     "dev": "nodemon index.js",
     "docker-up": "docker-compose -f docker-compose-dev.yml up -d",
     "postdocker-up": "sleep 5 && npm run migrate",
-    "migrate": "docker-compose -f docker-compose-dev.yml exec -T mysql mysql -u root -pazAZ09\\(\\) dnc_commerce < create_database.sql",
+    "migrate": "docker-compose -f docker-compose-dev.yml exec -T mysql mysql -u root -pazAZ09() dnc_commerce < create_database.sql",
     "start:dev": "npm run migrate && npm run dev",
     "docker-down": "docker-compose -f docker-compose-dev.yml down"
   },

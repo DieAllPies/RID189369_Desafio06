@@ -30,4 +30,16 @@
 ![Untitled](https://github.com/user-attachments/assets/ce241888-ef54-48c7-a8cf-33bca3abab5f)
 
 
----
+## Requirements
+- Node.js
+- Docker 
+- .env file (based on `.env.example`)
+- Postman
+- MySQL
+
+## How to Run
+
+After installing the requirements and setting up your `.env` file, run:
+
+```bash
+npm run start:dev
