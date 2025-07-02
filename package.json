@@ -8,7 +8,7 @@
     "dev": "nodemon index.js",
     "docker-up": "docker-compose -f docker-compose-dev.yml up -d",
     "postdocker-up": "sleep 5 && npm run migrate",
-    "migrate": "mysql -u $DB_USER -p$DB_PASSWORD $DB_NAME < create_database.sql",
+    "migrate": "dotenv -e .env -- bash -c \"mysql -u $DB_USER -p$DB_PASSWORD $DB_NAME < create_database.sql\"",
     "start:dev": "npm run migrate && npm run dev",
     "docker-down": "docker-compose -f docker-compose-dev.yml down"
   },
@@ -24,6 +24,7 @@
     "mysql2": "^3.14.1"
   },
   "devDependencies": {
+    "dotenv-cli": "^8.0.0",
     "eslint": "^9.30.0",
     "nodemon": "^3.1.10",
     "prettier": "^3.6.2"
